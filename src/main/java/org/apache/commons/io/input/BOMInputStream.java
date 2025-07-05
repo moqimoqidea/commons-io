@@ -91,6 +91,9 @@ import org.apache.commons.io.IOUtils;
  * <p>
  * To build an instance, use {@link Builder}.
  * </p>
+ * <p>
+ * This class is not thread-safe.
+ * </p>
  *
  * @see Builder
  * @see org.apache.commons.io.ByteOrderMark
@@ -229,7 +232,6 @@ public class BOMInputStream extends ProxyInputStream {
 
     private ByteOrderMark byteOrderMark;
     private int fbIndex;
-    private int fbLength;
     private int[] firstBytes;
     private final boolean include;
     private boolean markedAtStart;
@@ -458,43 +460,42 @@ public class BOMInputStream extends ProxyInputStream {
     }
 
     private ByteOrderMark readBom() throws IOException {
-        fbLength = 0;
+        int fbLength = 0;
         // BOMs are sorted from longest to shortest
         final int maxBomSize = bomList.get(0).length();
-        firstBytes = new int[maxBomSize];
+        final int[] tmp = new int[maxBomSize];
         // Read first maxBomSize bytes
-        for (int i = 0; i < firstBytes.length; i++) {
-            firstBytes[i] = in.read();
-            afterRead(firstBytes[i]);
+        for (int i = 0; i < tmp.length; i++) {
+            tmp[i] = in.read();
+            afterRead(tmp[i]);
             fbLength++;
-            if (firstBytes[i] < 0) {
+            if (tmp[i] < 0) {
                 break;
             }
         }
+        firstBytes = Arrays.copyOf(tmp, fbLength);
         // match BOM in firstBytes
         final ByteOrderMark bom = find();
         if (bom != null && !include) {
             if (bom.length() < firstBytes.length) {
                 fbIndex = bom.length();
             } else {
-                fbLength = 0;
+                firstBytes = new int[0];
             }
         }
         return bom;
     }
 
     /**
-     * This method reads and either preserves or skips the first bytes in the stream. It behaves like the single-byte
-     * {@code read()} method, either returning a valid byte or -1 to indicate that the initial bytes have been
-     * processed already.
+     * Reads and either preserves or skips the first bytes in the stream. This method behaves like the single-byte {@code read()} method, either returning a
+     * valid byte or -1 to indicate that the initial bytes have been processed already.
      *
-     * @return the byte read (excluding BOM) or -1 if the end of stream
-     * @throws IOException
-     *             if an I/O error occurs
+     * @return the byte read (excluding BOM) or -1 if at the end of first bytes.
+     * @throws IOException if an I/O error occurs
      */
     private int readFirstBytes() throws IOException {
         getBOM();
-        return fbIndex < fbLength ? firstBytes[fbIndex++] : EOF;
+        return fbIndex < firstBytes.length ? firstBytes[fbIndex++] : EOF;
     }
 
     /**
