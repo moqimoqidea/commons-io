@@ -92,7 +92,7 @@ public abstract class AbstractByteArrayOutputStream<T extends AbstractByteArrayO
     private byte[] currentBuffer;
 
     /** The index of the current buffer. */
-    private int currentBufferIndex;
+    private int currentBufferIndex = -1;
 
     /** The total count of bytes in all the filled buffers. */
     private int filledBufferSum;
@@ -140,20 +140,19 @@ public abstract class AbstractByteArrayOutputStream<T extends AbstractByteArrayO
         if (currentBufferIndex < buffers.size() - 1) {
             // Recycling old buffer
             filledBufferSum += currentBuffer.length;
-
             currentBufferIndex++;
             currentBuffer = buffers.get(currentBufferIndex);
         } else {
             // Creating new buffer
             final int newBufferSize;
             if (currentBuffer == null) {
-                newBufferSize = newCount;
+                // prevents 0 size buffers
+                newBufferSize = newCount > 0 ? newCount : DEFAULT_SIZE;
                 filledBufferSum = 0;
             } else {
                 newBufferSize = Math.max(currentBuffer.length << 1, newCount - filledBufferSum);
                 filledBufferSum += currentBuffer.length;
             }
-
             currentBufferIndex++;
             currentBuffer = IOUtils.byteArray(newBufferSize);
             buffers.add(currentBuffer);
